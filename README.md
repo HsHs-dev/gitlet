@@ -45,7 +45,7 @@ Gitlet's state is stored within a `.gitlet` directory in the root of the project
 - **Staging Area**: Files staged for addition or removal are tracked in a `Staging` object, which is serialized to the `.gitlet/staged` file.
 - **Branches and HEAD**: Branches are pointers to commit hashes. Each branch is a file in `.gitlet/branches` whose content is the hash of the commit it points to. The `HEAD` file contains the name of the currently active branch.
 
-## Build and Test
+## Building
 
 The project uses a `Makefile` for building and testing.
 
