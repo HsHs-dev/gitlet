@@ -614,27 +614,78 @@ public class Repository {
        Set<String> gFiles = targetCommit.getFiles().keySet();
        Set<String> sFiles = splitPointCommit.getFiles().keySet();
 
-       // Any file that have been modified in the given branch since the split point,
-       // but not modified in the current branch since the split point should be changed to
-       // their versions in the given branch (checked out from the commit at the front of the given branch).
-       // These files should then all be automatically staged.
-       // 1. Hash(C) == Hash(S) AND Hash(G) != Hash(S)
-       for (String file: gFiles) {
+       Set<String> files = new HashSet<String>(cFiles);
+       files.addAll(gFiles);
+       files.addAll(sFiles);
+
+
+       for (String file: files) {
            String cFileHash = headCommit.getVal(file);
            String gFileHash = targetCommit.getVal(file);
            String sFileHash = splitPointCommit.getVal(file);
 
            boolean unmodifiedInCurrent = Objects.equals(cFileHash, sFileHash);
-           boolean modifiedInGiven = !Objects.equals(gFileHash, sFileHash);
+           boolean modifiedInGiven     = !Objects.equals(gFileHash, sFileHash);
+           boolean modifiedInCurrent   = !Objects.equals(cFileHash, sFileHash);
+           boolean unmodifiedInGiven   = Objects.equals(gFileHash, sFileHash);
+           boolean presentGivenOnly    = !sFiles.contains(file) && !cFiles.contains(file) && gFiles.contains(file);
+           boolean presentSplit        = sFiles.contains(file);
 
+
+           // 1. Any file that have been modified in the given branch since the split point,
+           // but not modified in the current branch since the split point should be changed to
+           // their versions in the given branch (checked out from the commit at the front of the given branch).
+           // These files should then all be automatically staged.
            if (unmodifiedInCurrent && modifiedInGiven) {
                // overwrite it with the G version and stage it
                writeFile(gFileHash, file);
                Staging stage = Staging.load();
                stage.addition(file, gFileHash);
+
+           // 2. Any files that have been modified in the current branch
+           // but not in the given branch since the split point should stay as they are.
+           } else if (modifiedInCurrent && unmodifiedInGiven) {
+               // do nothing
+
+           // 3. Any files that have been modified in both the current and given branch in the same way
+           // (i.e., both files now have the same content or were both removed) are left unchanged by the merge.
+           // If a file was removed from both the current and given branch, but a file of the same name is
+           // present in the working directory, it is left alone and continues to be absent
+           // (not tracked nor staged) in the merge.
+           } else if (modifiedInCurrent && modifiedInGiven) {
+               // do nothing
+
+           // 4. Any files that were not present at the split point and are present only
+           // in the current branch should remain as they are.
+           } else if (modifiedInCurrent) {
+               // do nothing
+
+           // 5. Any files that were not present at the split point and are present only
+           // in the given branch should be checked out and staged.
+           } else if (presentGivenOnly) {
+               writeFile(gFileHash, file);
+               Staging stage = Staging.load();
+               stage.addition(file, gFileHash);
+
+           // 6. Any files present at the split point, unmodified in the current branch,
+           // and absent in the given branch should be removed (and untracked).
+           } else if (presentSplit && unmodifiedInCurrent && !gFiles.contains(file)) {
+               stageArea.addRemoval(file);
+               restrictedDelete(file);
+
+           // 7. Any files present at the split point, unmodified in the given branch,
+           // and absent in the current branch should remain absent.
+           } else if (presentSplit && unmodifiedInGiven && !cFiles.contains(file)) {
+               // do nothing
+
+            // 8. modified differently in current and given, conflict case
+           } else {
+               // TODO
            }
 
        }
+
+
 
     }
 
