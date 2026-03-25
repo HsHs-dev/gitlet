@@ -606,6 +606,36 @@ public class Repository {
             System.out.println("Current branch fast-forwarded.");
         }
 
+        File splitPointFile = join(COMMITS_DIR, latestCommonAncestor);
+        Commit splitPointCommit = readObject(splitPointFile, Commit.class);
+
+       // (C)urrent branch, (S)plit point branch, (G)iven branch
+       Set<String> cFiles = headCommit.getFiles().keySet();
+       Set<String> gFiles = targetCommit.getFiles().keySet();
+       Set<String> sFiles = splitPointCommit.getFiles().keySet();
+
+       // Any file that have been modified in the given branch since the split point,
+       // but not modified in the current branch since the split point should be changed to
+       // their versions in the given branch (checked out from the commit at the front of the given branch).
+       // These files should then all be automatically staged.
+       // 1. Hash(C) == Hash(S) AND Hash(G) != Hash(S)
+       for (String file: gFiles) {
+           String cFileHash = headCommit.getVal(file);
+           String gFileHash = targetCommit.getVal(file);
+           String sFileHash = splitPointCommit.getVal(file);
+
+           boolean unmodifiedInCurrent = Objects.equals(cFileHash, sFileHash);
+           boolean modifiedInGiven = !Objects.equals(gFileHash, sFileHash);
+
+           if (unmodifiedInCurrent && modifiedInGiven) {
+               // overwrite it with the G version and stage it
+               writeFile(gFileHash, file);
+               Staging stage = Staging.load();
+               stage.addition(file, gFileHash);
+           }
+
+       }
+
     }
 
     private static String findLatestCommonAncestor(Commit currentCommit, Commit targetCommit) {

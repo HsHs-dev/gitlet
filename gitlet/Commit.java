@@ -35,7 +35,7 @@ public class Commit implements Serializable {
     /** The message of this Commit. */
     private String message;
 
-    /** The parent commit of the current Commit */
+    /** The parent/s commit of the current Commit */
     private String parent;
 
     /** The timestamp of this Commit */
