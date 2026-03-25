@@ -2,6 +2,8 @@
 
 Gitlet is a version-control system implemented after a subset of Git's features. It is implemented in the Java programming language.
 
+![gitlet-logo](gitlet-logo.png)
+
 Gitlet is project 2 in [UCB-CS61B: Data Structures and Algorithms](https://github.com/HsHs-dev/UCB-CS61B) course, which aims to implement such a complex system with considerable amount of DSA such as git, to give a sense of how DSA can be used together, and how it can impact our design choices in a real-world system.
 
 ## Features
