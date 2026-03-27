@@ -60,7 +60,10 @@ public class Commit implements Serializable {
         this.parent = Arrays.toString(readContents(getHead()));
     }
 
-
+    /** set the two parents of a merged branch commit */
+    public void setParents(String parent1, String parent2) {
+        this.parent = parent1 + " " + parent2;
+    }
 
     private void init(String commitMessage) {
         this.timestamp = "Thu Jan 1 00:00:00 1970 +0000";

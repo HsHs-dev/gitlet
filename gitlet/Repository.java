@@ -685,8 +685,8 @@ public class Repository {
 
        }
 
-
-
+       // TODO
+       // Mergedcommit("Merged " + currentBranch + "into" + branchName + ".");
     }
 
     private static String findLatestCommonAncestor(Commit currentCommit, Commit targetCommit) {
