@@ -432,9 +432,7 @@ public class Repository {
 
         for (String file: cwdFiles) {
             if (!headCommitFiles.containsKey(file) && targetCommitFiles.containsKey(file)) {
-                System.out.println("There is an untracked file in the way; "
-                        + "delete it, or add and commit it first.");
-                System.exit(0);
+                untrackedErr();
             }
         }
 
@@ -499,8 +497,7 @@ public class Repository {
 
         // check if the branch exists
         if (!branches.contains(branchName)) {
-            System.out.println("A branch with that name does not exist.");
-            System.exit(0);
+            branchNotExistErr();
         }
 
         // check if the to be removed branch is the current branch
@@ -542,66 +539,21 @@ public class Repository {
 
     public static void merge(String branchName) {
 
-        // check if a .gitlet dir exists
-        checkInit();
-
-        // check if there is a staged for addition or removal files
-        Staging stageArea = Staging.load();
-        if (!stageArea.currAdd().isEmpty() && !stageArea.currRemove().isEmpty()) {
-            System.out.println("You have uncommitted changes.");
-            System.exit(0);
-        }
-
-        // check if the branch exists
-        List<String> branches = plainFilenamesIn(BRANCHES_DIR);
-        if (!branches.contains(branchName)) {
-            System.out.println("A branch with that name does not exist.");
-            System.exit(0);
-        }
-
-        // check if the given branch is the current branch
-        String currentBranch = readContentsAsString(HEAD_FILE);
-        if (branchName.equals(currentBranch)) {
-            System.out.println("Cannot merge a branch with itself.");
-            System.exit(0);
-        }
-
-        // If a working file is untracked in the current branch
-        // and would be overwritten by the merge,
-        // print There is an untracked file in the way;
-        // delete it, or add and commit it first. and exit;
-        List<String> cwdFiles = plainFilenamesIn(CWD);
-        // current commit files
         Commit headCommit = Commit.load();
-        Map<String, String> headCommitFiles = headCommit.getFiles();
-
-        // target commit files
         File targetBranchFile = join(BRANCHES_DIR, branchName);
         String targetCommitId = readContentsAsString(targetBranchFile);
         File targetCommitFile = join(COMMITS_DIR, targetCommitId);
         Commit targetCommit = readObject(targetCommitFile, Commit.class);
-        Map<String, String> targetCommitFiles = targetCommit.getFiles();
-
-        for (String file: cwdFiles) {
-            if (!headCommitFiles.containsKey(file) && targetCommitFiles.containsKey(file)) {
-                System.out.println("There is an untracked file in the way; "
-                        + "delete it, or add and commit it first.");
-                System.exit(0);
-            }
-        }
+        String currentBranch = readContentsAsString(HEAD_FILE);
+        Staging stageArea = Staging.load();
 
         String latestCommonAncestor = findLatestCommonAncestor(headCommit, targetCommit);
 
-        // If the split point is the same commit as the given branch, then we do nothing;
-        // the merge is complete, and the operation ends with the message
-        // Given branch is an ancestor of the current branch.
         if (latestCommonAncestor.equals(targetCommitId)) {
             System.out.println("Given branch is an ancestor of the current branch.");
             return;
         }
 
-        // If the split point is the current branch, then the effect is to check out the given branch,
-        // and the operation ends after printing the message Current branch fast-forwarded.
         String currentBranchHash = readContentsAsString(join(BRANCHES_DIR, currentBranch));
         if (latestCommonAncestor.equals(currentBranchHash)) {
             checkoutBranch(branchName);
@@ -629,59 +581,21 @@ public class Repository {
 
            boolean unmodifiedInCurrent = Objects.equals(cFileHash, sFileHash);
            boolean modifiedInGiven     = !Objects.equals(gFileHash, sFileHash);
-           boolean modifiedInCurrent   = !Objects.equals(cFileHash, sFileHash);
-           boolean unmodifiedInGiven   = Objects.equals(gFileHash, sFileHash);
            boolean presentGivenOnly    = !sFiles.contains(file) && !cFiles.contains(file) && gFiles.contains(file);
            boolean presentSplit        = sFiles.contains(file);
 
-
-           // 1. Any file that have been modified in the given branch since the split point,
-           // but not modified in the current branch since the split point should be changed to
-           // their versions in the given branch (checked out from the commit at the front of the given branch).
-           // These files should then all be automatically staged.
            if (unmodifiedInCurrent && modifiedInGiven) {
                // overwrite it with the G version and stage it
                writeFile(gFileHash, file);
                Staging stage = Staging.load();
                stage.addition(file, gFileHash);
-
-           // 2. Any files that have been modified in the current branch
-           // but not in the given branch since the split point should stay as they are.
-           } else if (modifiedInCurrent && unmodifiedInGiven) {
-               // do nothing
-
-           // 3. Any files that have been modified in both the current and given branch in the same way
-           // (i.e., both files now have the same content or were both removed) are left unchanged by the merge.
-           // If a file was removed from both the current and given branch, but a file of the same name is
-           // present in the working directory, it is left alone and continues to be absent
-           // (not tracked nor staged) in the merge.
-           } else if (modifiedInCurrent && modifiedInGiven) {
-               // do nothing
-
-           // 4. Any files that were not present at the split point and are present only
-           // in the current branch should remain as they are.
-           } else if (modifiedInCurrent) {
-               // do nothing
-
-           // 5. Any files that were not present at the split point and are present only
-           // in the given branch should be checked out and staged.
            } else if (presentGivenOnly) {
                writeFile(gFileHash, file);
                Staging stage = Staging.load();
                stage.addition(file, gFileHash);
-
-           // 6. Any files present at the split point, unmodified in the current branch,
-           // and absent in the given branch should be removed (and untracked).
            } else if (presentSplit && unmodifiedInCurrent && !gFiles.contains(file)) {
                stageArea.addRemoval(file);
                restrictedDelete(file);
-
-           // 7. Any files present at the split point, unmodified in the given branch,
-           // and absent in the current branch should remain absent.
-           } else if (presentSplit && unmodifiedInGiven && !cFiles.contains(file)) {
-               // do nothing
-
-            // 8. modified differently in current and given, conflict case
            } else {
                // TODO
            }
@@ -700,20 +614,6 @@ public class Repository {
         LinkedList<String> branchAncestors = targetCommit.getCommits();
         Iterator<String> branchIter = branchAncestors.descendingIterator();
 
-        System.out.println("current branch ancestors are: ");
-        while (currentIter.hasNext()) {
-            System.out.println(currentIter.next());
-        }
-
-        System.out.println();
-
-        System.out.println("target branch ancestors are: ");
-        while(branchIter.hasNext()) {
-            System.out.println(branchIter.next());
-        }
-
-        System.out.println();
-
         currentIter = currentAncestors.descendingIterator();
         branchIter = branchAncestors.descendingIterator();
 
@@ -722,8 +622,6 @@ public class Repository {
             while (branchIter.hasNext()) {
                 String branchAncestor = branchIter.next();
                 if (currentAncestor.equals(branchAncestor)) {
-                    System.out.println("Latest Common ancestor is " + branchAncestor);
-                    System.out.println();
                     return branchAncestor;
                 }
             }
@@ -738,6 +636,55 @@ public class Repository {
             System.out.println("Not in an initialized Gitlet directory.");
             System.exit(0);
         }
+    }
+
+    private static void branchNotExistErr() {
+        System.out.println("A branch with that name does not exist.");
+        System.exit(0);
+    }
+
+    private static void untrackedErr() {
+        System.out.println("There is an untracked file in the way; "
+                + "delete it, or add and commit it first.");
+        System.exit(0);
+    }
+
+    private static void checkMergeErrors(String branchName) {
+        checkInit();
+
+        Staging stageArea = Staging.load();
+        if (!stageArea.currAdd().isEmpty() && !stageArea.currRemove().isEmpty()) {
+            System.out.println("You have uncommitted changes.");
+            System.exit(0);
+        }
+
+        List<String> branches = plainFilenamesIn(BRANCHES_DIR);
+        if (!branches.contains(branchName)) {
+            branchNotExistErr();
+        }
+
+        String currentBranch = readContentsAsString(HEAD_FILE);
+        if (branchName.equals(currentBranch)) {
+            System.out.println("Cannot merge a branch with itself.");
+            System.exit(0);
+        }
+
+        List<String> cwdFiles = plainFilenamesIn(CWD);
+        Commit headCommit = Commit.load();
+        Map<String, String> headCommitFiles = headCommit.getFiles();
+
+        File targetBranchFile = join(BRANCHES_DIR, branchName);
+        String targetCommitId = readContentsAsString(targetBranchFile);
+        File targetCommitFile = join(COMMITS_DIR, targetCommitId);
+        Commit targetCommit = readObject(targetCommitFile, Commit.class);
+        Map<String, String> targetCommitFiles = targetCommit.getFiles();
+
+        for (String file: cwdFiles) {
+            if (!headCommitFiles.containsKey(file) && targetCommitFiles.containsKey(file)) {
+                untrackedErr();
+            }
+        }
+
     }
 
 }
