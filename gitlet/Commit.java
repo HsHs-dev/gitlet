@@ -50,19 +50,18 @@ public class Commit implements Serializable {
     /** Commit's hash value */
     private String hash;
 
-    public Commit(String commitMessage) {
+    public Commit(String commitMessage, String parents) {
         if (!COMMITS_DIR.exists()) {
             init(commitMessage);
             return;
         }
         this.message = commitMessage;
         this.timestamp = writeTimestamp();
-        this.parent = Arrays.toString(readContents(getHead()));
-    }
-
-    /** set the two parents of a merged branch commit */
-    public void setParents(String parent1, String parent2) {
-        this.parent = parent1 + " " + parent2;
+        if (parents == null) {
+            this.parent = Arrays.toString(readContents(getHead()));
+        } else {
+            this.parent = parents;
+        }
     }
 
     private void init(String commitMessage) {

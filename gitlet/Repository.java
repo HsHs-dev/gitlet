@@ -44,7 +44,7 @@ public class Repository {
         GITLET_DIR.mkdir();
 
         // create the initial commit and add it to the commits list
-        Commit init = new Commit("initial commit");
+        Commit init = new Commit("initial commit", null);
     }
 
     public static void add(String addedFile) {
@@ -109,7 +109,7 @@ public class Repository {
         return false;
     }
 
-    public static void commit(String message) {
+    public static void commit(String message, String parents) {
 
         // check if a .gitlet dir exists
         checkInit();
@@ -122,10 +122,12 @@ public class Repository {
         }
 
         // create a new commit with the provided commit message
-        Commit newCommit = new Commit(message);
+        Commit newCommit = new Commit(message, parents);
 
-        // copy the tracked files by the parent to the current commit
-        newCommit.copyParentFiles();
+        if (parents == null) {
+            // copy the tracked files by the parent to the current commit
+            newCommit.copyParentFiles();
+        }
 
         // add the files from the staged for addition area
         Staging stageArea = Staging.load();
@@ -602,8 +604,9 @@ public class Repository {
         // and the operation ends after printing the message Current branch fast-forwarded.
         String currentBranchHash = readContentsAsString(join(BRANCHES_DIR, currentBranch));
         if (latestCommonAncestor.equals(currentBranchHash)) {
-            checkoutCommID(targetCommitId);
+            checkoutBranch(branchName);
             System.out.println("Current branch fast-forwarded.");
+            return;
         }
 
         File splitPointFile = join(COMMITS_DIR, latestCommonAncestor);
@@ -685,8 +688,8 @@ public class Repository {
 
        }
 
-       // TODO
-       // Mergedcommit("Merged " + currentBranch + "into" + branchName + ".");
+       String parents = currentBranch + " " + branchName;
+       commit("Merged " + currentBranch + "into" + branchName + ".", parents);
     }
 
     private static String findLatestCommonAncestor(Commit currentCommit, Commit targetCommit) {

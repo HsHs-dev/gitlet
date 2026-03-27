@@ -41,7 +41,7 @@ public class Main {
                 break;
             case "commit":
                 validateArgs("commit", args, COMMIT_ARGS);
-                Repository.commit(args[1]);
+                Repository.commit(args[1], null);
                 break;
             case "rm":
                 validateArgs("rm", args, REMOVE_ARGS);
