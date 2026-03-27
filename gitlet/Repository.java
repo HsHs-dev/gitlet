@@ -580,9 +580,11 @@ public class Repository {
            String sFileHash = splitPointCommit.getVal(file);
 
            boolean unmodifiedInCurrent = Objects.equals(cFileHash, sFileHash);
-           boolean modifiedInGiven     = !Objects.equals(gFileHash, sFileHash);
-           boolean presentGivenOnly    = !sFiles.contains(file) && !cFiles.contains(file) && gFiles.contains(file);
-           boolean presentSplit        = sFiles.contains(file);
+           boolean modifiedInGiven = !Objects.equals(gFileHash, sFileHash);
+           boolean presentGivenOnly = !sFiles.contains(file) &&
+                   !cFiles.contains(file) &&
+                  gFiles.contains(file);
+           boolean presentSplit = sFiles.contains(file);
 
            if (unmodifiedInCurrent && modifiedInGiven) {
                // overwrite it with the G version and stage it
